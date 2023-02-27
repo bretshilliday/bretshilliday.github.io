@@ -1,0 +1,21 @@
+{
+  "files": {
+    "main.css": "/static/css/main.e748aec1.css",
+    "main.js": "/static/js/main.3971c361.js",
+    "static/js/787.394b283c.chunk.js": "/static/js/787.394b283c.chunk.js",
+    "static/media/2.png": "/static/media/2.49009a7475890b7571d3.png",
+    "static/media/3.png": "/static/media/3.9d502962ab085cb9e5ec.png",
+    "static/media/welcomeImage.png": "/static/media/welcomeImage.37474719295193c9cec2.png",
+    "static/media/BlinkGaston.otf": "/static/media/BlinkGaston.b01adc3333ffdff53143.otf",
+    "static/media/SecretSanta.png": "/static/media/SecretSanta.ed466821a5fa029673df.png",
+    "static/media/CocogooseLight.ttf": "/static/media/CocogooseLight.f77876cfc3790e5308f4.ttf",
+    "index.html": "/index.html",
+    "main.e748aec1.css.map": "/static/css/main.e748aec1.css.map",
+    "main.3971c361.js.map": "/static/js/main.3971c361.js.map",
+    "787.394b283c.chunk.js.map": "/static/js/787.394b283c.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e748aec1.css",
+    "static/js/main.3971c361.js"
+  ]
+}
