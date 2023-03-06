@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.aa46be53.css",
-    "main.js": "/static/js/main.770c9c5a.js",
+    "main.css": "/static/css/main.ba2aebf8.css",
+    "main.js": "/static/js/main.06085be5.js",
     "static/js/787.394b283c.chunk.js": "/static/js/787.394b283c.chunk.js",
     "static/media/BretStanding.png": "/static/media/BretStanding.9d7546796cdf93a837a1.png",
     "static/media/HaskayneNFT.png": "/static/media/HaskayneNFT.9f259e9b98214455537d.png",
@@ -9,12 +9,12 @@
     "static/media/SecretSanta.png": "/static/media/SecretSanta.ed466821a5fa029673df.png",
     "static/media/CocogooseLight.ttf": "/static/media/CocogooseLight.f77876cfc3790e5308f4.ttf",
     "index.html": "/index.html",
-    "main.aa46be53.css.map": "/static/css/main.aa46be53.css.map",
-    "main.770c9c5a.js.map": "/static/js/main.770c9c5a.js.map",
+    "main.ba2aebf8.css.map": "/static/css/main.ba2aebf8.css.map",
+    "main.06085be5.js.map": "/static/js/main.06085be5.js.map",
     "787.394b283c.chunk.js.map": "/static/js/787.394b283c.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.aa46be53.css",
-    "static/js/main.770c9c5a.js"
+    "static/css/main.ba2aebf8.css",
+    "static/js/main.06085be5.js"
   ]
 }
