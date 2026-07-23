@@ -1,19 +1,260 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bret Shilliday</title>
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>···</title>
+<meta name="description" content="···">
+<meta property="og:title" content="···">
+<meta property="og:description" content="···">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='black'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='18' fill='%23e8e8e8' text-anchor='middle'%3E@%3C/text%3E%3C/svg%3E">
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:crosshair;
+            touch-action:none;-webkit-user-select:none;user-select:none;
+            overscroll-behavior:none}
+  canvas{position:fixed;inset:0}
+  nav{position:fixed;top:14px;right:52px;z-index:10;display:flex;
+      flex-direction:column;gap:11px;align-items:center;
+      font-family:"Courier New",ui-monospace,monospace}
+  nav a{writing-mode:vertical-rl;text-orientation:upright;
+        color:#9a9a9a;text-decoration:none;font-size:13px;letter-spacing:.08em;
+        text-transform:uppercase;padding:1px;
+        transition:color .15s,text-shadow .15s,opacity .15s}
+  nav a:hover{color:#fff;text-shadow:0 0 8px rgba(255,255,255,.9)}
+  nav a:active{opacity:.6}
+  nav .d{color:#5a5a5a;font-size:9px;line-height:1;pointer-events:none}
+  @media (max-width:600px){
+    nav{top:12px;right:40px;gap:11px}
+    nav a{font-size:14px;padding:3px}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<nav id="nav">
+  <a href="mailto:bret.shilliday@gsr.io" aria-label="Mail">Mail</a>
+  <span class="d" aria-hidden="true">&#10022;</span>
+  <a href="https://x.com/BretShilliday" target="_blank" rel="noopener" aria-label="X">X</a>
+  <span class="d" aria-hidden="true">&#10022;</span>
+  <a href="https://www.linkedin.com/in/bret-shilliday/" target="_blank" rel="noopener" aria-label="LinkedIn">LinkedIn</a>
+</nav>
+
+<script>
+// ASCII FIELD
+// Each cell is a character; brightness picks the glyph from a density
+// ramp (classic ASCII-art shading). The cursor glow, twinkles (glyph
+// swaps), and chromatic ripples all read as morphing text. The nav sits
+// in a quiet island of clean black, snapped onto the character grid so
+// its margins are exactly equal.
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+
+const PITCH   = 14;    // cell spacing in CSS px
+const FONT_PX = 12;    // character size
+const GLOW_PX = 120;   // hover glow radius in px
+const SPEED_PX= 400;   // ripple expansion speed in px/s
+const SHIMMER = 22;    // random glyph-swaps per frame
+const BASE    = 0.07, RING_LIFE = 3;
+const REACH   = GLOW_PX/PITCH, REACH2 = REACH*REACH;
+const RING_SPEED = SPEED_PX/PITCH;
+const RING_W  = 90/PITCH, RING_W2 = RING_W*RING_W;
+
+// density ramp: groups of glyphs with similar visual weight, light→heavy.
+const RAMP=[
+  ['.','·',',','`'],
+  [':',';','-','\''],
+  ['~','+','=','^'],
+  ['*','x','%','?'],
+  ['#','&','8','$'],
+  ['@','0','M','W']
+];
+const LEVELS=RAMP.length;
+
+function hsl2rgb(hu,s,l){
+  hu=((hu%360)+360)%360;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{const k=(n+hu/30)%12;return Math.round((l-a*Math.max(-1,Math.min(k-3,9-k,1)))*255)};
+  return [f(0),f(8),f(4)];
+}
+
+// cached gray fillStyles (quantized) to limit style switching
+const GRAYS=[];
+for(let q=0;q<32;q++){
+  const g=Math.round(70+(232-70)*q/31);
+  GRAYS.push('rgb('+g+','+g+','+g+')');
+}
+
+let W,H,gw,gh,bright,salt,dpr;
+const MAX_CANVAS_PX=8e6;  // cap backing-store pixels (protects huge/4K screens)
+function resize(){
+  W=innerWidth; H=innerHeight;
+  dpr=Math.min(devicePixelRatio||1,2);
+  dpr=Math.max(1,Math.min(dpr,Math.sqrt(MAX_CANVAS_PX/(W*H))));
+  cv.width=W*dpr; cv.height=H*dpr;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.font=FONT_PX+'px "Courier New", monospace';
+  cx.textAlign='center'; cx.textBaseline='middle';
+  gw=Math.ceil(W/PITCH); gh=Math.ceil(H/PITCH);
+  bright=new Float32Array(gw*gh);
+  salt=new Uint8Array(gw*gh);
+  for(let i=0;i<salt.length;i++) salt[i]=(Math.random()*251)|0;
+}
+resize();
+
+let mx=-1e4,my=-1e4,lastInput=performance.now();
+function setPos(x,y){ mx=x/PITCH; my=y/PITCH; lastInput=performance.now(); }
+addEventListener('mousemove', e=>setPos(e.clientX,e.clientY));
+addEventListener('touchmove', e=>{e.preventDefault();setPos(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+addEventListener('touchstart', e=>setPos(e.touches[0].clientX,e.touches[0].clientY));
+// release the glow when the finger lifts or the mouse leaves the window
+addEventListener('touchend', ()=>{ mx=-1e4; my=-1e4; });
+addEventListener('touchcancel', ()=>{ mx=-1e4; my=-1e4; });
+document.addEventListener('mouseleave', ()=>{ mx=-1e4; my=-1e4; });
+
+const blooms=[];
+function addBloom(x,y){
+  lastInput=performance.now();
+  blooms.push({bx:x/PITCH, by:y/PITCH, t0:lastInput/1000, hue:Math.random()*360});
+  if(blooms.length>6) blooms.shift();
+}
+addEventListener('click', e=>addBloom(e.clientX,e.clientY));
+addEventListener('touchstart', e=>addBloom(e.touches[0].clientX,e.touches[0].clientY));
+
+const nav=document.getElementById('nav');
+nav.addEventListener('click', e=>e.stopPropagation());
+nav.addEventListener('touchstart', e=>e.stopPropagation());
+
+// quiet zone: an island of clean black around the text, running off the
+// top edge. The nav is snapped onto the character grid — its centre is
+// aligned to a cell column and the void spans a whole number of cells
+// on each side — so the margins are exactly equal left and right.
+let navRect=null;
+const VOID_PAD=12;
+function updateNavRect(){
+  nav.style.transform='';                        // measure unshifted
+  const r=nav.getBoundingClientRect();
+  const cpx=(r.left+r.right)/2;                  // nav centre in px
+  const centerCell=Math.round(cpx/PITCH-0.5)+0.5;// nearest cell centre (cell units)
+  const half=Math.ceil((r.width/2+VOID_PAD)/PITCH); // whole cells per side
+  navRect={x0:centerCell-half, x1:centerCell+half,
+           y0:-1e9, y1:(r.bottom+VOID_PAD)/PITCH};
+  // shift the nav so its centre sits exactly on that cell column
+  nav.style.transform='translateX('+(centerCell*PITCH-cpx).toFixed(2)+'px)';
+}
+updateNavRect();
+
+// debounced resize: reallocate and re-measure once, after resizing settles
+let resizeTimer=0;
+addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer=setTimeout(()=>{ resize(); updateNavRect(); },150);
+});
+
+// reusable ripple cache — no per-frame allocations
+const bc=[];
+for(let k=0;k<6;k++) bc.push({bx:0,by:0,ring:0,age:0,decay:0,hue:0,lo2:0,hi2:0});
+let bcN=0;
+
+let frameCount=0;
+function frame(){
+  const now=performance.now();
+  frameCount++;
+  // idle throttle: after 10s without input, render at ~half rate.
+  // only the shimmer animates when idle, so this is invisible —
+  // and it halves the sustained GPU/CPU load that builds up over time.
+  if(now-lastInput>10000 && (frameCount&1)){
+    requestAnimationFrame(frame);
+    return;
+  }
+  const t=now/1000;
+  while(blooms.length && t-blooms[0].t0>RING_LIFE) blooms.shift();
+
+  bcN=blooms.length;
+  for(let k=0;k<bcN;k++){
+    const bm=blooms[k], age=t-bm.t0, o=bc[k];
+    const ring=age*RING_SPEED, span=RING_W*3;
+    const lo=Math.max(0,ring-span), hi=ring+span;
+    o.bx=bm.bx; o.by=bm.by; o.ring=ring; o.age=age;
+    o.decay=Math.exp(-age*1.1); o.hue=bm.hue;
+    o.lo2=lo*lo; o.hi2=hi*hi;
+  }
+
+  // twinkle = a cell swaps its glyph (new salt) and pulses slightly
+  for(let k=0;k<SHIMMER;k++){
+    const i=(Math.random()*bright.length)|0;
+    salt[i]=(Math.random()*251)|0;
+    bright[i]=Math.max(bright[i],0.12+Math.random()*0.18);
+  }
+
+  cx.fillStyle='#000';
+  cx.fillRect(0,0,W,H);
+
+  let lastStyle='';
+  for(let y=0;y<gh;y++){
+    const py=y*PITCH+PITCH/2;
+    for(let x=0;x<gw;x++){
+      const i=y*gw+x;
+
+      const cxd=x+0.5, cyd=y+0.5;
+      if(navRect && cxd>navRect.x0&&cxd<navRect.x1
+                 && cyd>navRect.y0&&cyd<navRect.y1) continue;
+
+      // cursor glow
+      let target=BASE;
+      {
+        const dx=cxd-mx, dy=cyd-my;
+        const d2=dx*dx+dy*dy;
+        if(d2<REACH2){
+          const f=1-Math.sqrt(d2)/REACH;
+          target=Math.max(BASE,f*f);
+        }
+      }
+      const b=bright[i];
+      bright[i]=b+(target-b)*(target>b?0.35:0.05);
+
+      // ripples: crest + gentle trailing dip, chromatic tint
+      let v=bright[i];
+      let r=0,g=0,bl=0, tinted=false;
+      for(let k=0;k<bcN;k++){
+        const bm=bc[k];
+        const bdx=cxd-bm.bx, bdy=cyd-bm.by;
+        const bd2=bdx*bdx+bdy*bdy;
+        if(bd2<bm.lo2||bd2>bm.hi2) continue;
+        const bd=Math.sqrt(bd2);
+        const off=bd-bm.ring;
+        const env=Math.exp(-(off*off)/RING_W2)*bm.decay;
+        if(env<0.03) continue;
+        const trail=off+1.5*RING_W;
+        v += 0.95*env - 0.35*Math.exp(-(trail*trail)/RING_W2)*bm.decay;
+        if(!tinted){
+          const base=Math.round(70+162*Math.min(1,v));
+          r=base; g=base; bl=base; tinted=true;
+        }
+        const I=Math.min(1,env);
+        const c=hsl2rgb(bm.hue+bd*4,1,0.62);
+        r=r*(1-I)+c[0]*I; g=g*(1-I)+c[1]*I; bl=bl*(1-I)+c[2]*I;
+      }
+      if(v<=0.03) continue;
+      if(v>1) v=1;
+
+      // brightness → glyph level; per-cell salt picks within the group
+      const lvl=Math.min(LEVELS-1,(v*LEVELS)|0);
+      const group=RAMP[lvl];
+      const ch=group[salt[i]%group.length];
+
+      const style = tinted
+        ? 'rgb('+(r|0)+','+(g|0)+','+(bl|0)+')'
+        : GRAYS[Math.min(31,(v*32)|0)];
+      if(style!==lastStyle){ cx.fillStyle=style; lastStyle=style; }
+      cx.fillText(ch, x*PITCH+PITCH/2, py);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
 </html>
